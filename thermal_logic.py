@@ -16,10 +16,16 @@ class ThermalSimulation:
         # Initialize temperature grid
         T = np.ones(self.grid_size) * initial_temp
         
-        # Apply boundary conditions
-        T[0, :] = self.properties['source_temp']
+        # Apply boundary conditions with more realistic heat distribution
+        if 'hypocaust' in self.properties:
+            # Multiple heat sources for hypocaust
+            for x in range(0, self.grid_size[0], 10):
+                T[x, 0] = self.properties['source_temp']
+        else:
+            # Single concentrated heat source for modern system
+            T[0:10, self.grid_size[1]//2] = self.properties['source_temp']
         
-        # Time evolution
+        # Time evolution with improved physics
         for t in range(time_steps):
             T_new = T.copy()
             for i in range(1, self.grid_size[0]-1):
@@ -52,6 +58,6 @@ class ThermalSimulation:
         }
         
         return {
-            source: consumption * co2_per_kwh[source] * duration 
+            source: power_consumption * co2_per_kwh[source] * duration 
             for source in co2_per_kwh
         }
