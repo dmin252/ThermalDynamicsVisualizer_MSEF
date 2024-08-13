@@ -28,14 +28,16 @@ def main():
     )
     material_properties['source_temp'] = 80  # °C
 
-    # Create simulation instances
+    # Create simulation instances with system types
     hypocaust_sim = ThermalSimulation(
         (room_size['length'], room_size['width']),
-        material_properties
+        material_properties,
+        system_type='hypocaust'
     )
     modern_sim = ThermalSimulation(
         (room_size['length'], room_size['width']),
-        material_properties
+        material_properties,
+        system_type='modern'
     )
 
     # Run simulations
