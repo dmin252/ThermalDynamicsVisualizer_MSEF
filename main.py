@@ -36,28 +36,28 @@ def main():
         hypocaust_material = st.selectbox(
             "Hypocaust System Material",
             ancient_building_materials,
-            format_func=lambda x: material_db.get_building_material(x)['name']
+            index=0
         )
         modern_material = st.selectbox(
             "Modern System Material",
             modern_building_materials,
-            format_func=lambda x: material_db.get_building_material(x)['name']
+            index=0
         )
         
         # Display selected material properties
-        if hypocaust_material:
-            mat = material_db.get_building_material(hypocaust_material)
+        hypocaust_props = material_db.get_building_material(hypocaust_material)
+        if hypocaust_props:
             st.write("Hypocaust Material Properties:")
-            st.write(f"- Thermal Conductivity: {mat['thermal_conductivity']} W/mK")
-            st.write(f"- Thermal Resistance: {mat['thermal_resistance']} m²K/W")
-            st.write(f"- Emissivity: {mat['emissivity']}")
+            st.write(f"- Thermal Conductivity: {hypocaust_props['thermal_conductivity']} W/mK")
+            st.write(f"- Thermal Resistance: {hypocaust_props['thermal_resistance']} m²K/W")
+            st.write(f"- Emissivity: {hypocaust_props['emissivity']}")
         
-        if modern_material:
-            mat = material_db.get_building_material(modern_material)
+        modern_props = material_db.get_building_material(modern_material)
+        if modern_props:
             st.write("Modern Material Properties:")
-            st.write(f"- Thermal Conductivity: {mat['thermal_conductivity']} W/mK")
-            st.write(f"- Thermal Resistance: {mat['thermal_resistance']} m²K/W")
-            st.write(f"- Emissivity: {mat['emissivity']}")
+            st.write(f"- Thermal Conductivity: {modern_props['thermal_conductivity']} W/mK")
+            st.write(f"- Thermal Resistance: {modern_props['thermal_resistance']} m²K/W")
+            st.write(f"- Emissivity: {modern_props['emissivity']}")
 
     # Simulation settings in an expander
     with st.sidebar.expander("Simulation Settings", expanded=True):
@@ -68,8 +68,12 @@ def main():
     # Run simulation button
     if st.sidebar.button('Run Simulation'):
         # Get material properties for simulations
-        hypocaust_props = material_db.get_building_material(hypocaust_material)
-        modern_props = material_db.get_building_material(modern_material)
+        hypocaust_props = material_db.get_building_material(hypocaust_material).copy()
+        modern_props = material_db.get_building_material(modern_material).copy()
+        
+        # Calculate thermal diffusivity for both materials
+        hypocaust_props['thermal_diffusivity'] = material_db.calculate_thermal_diffusivity(hypocaust_props)
+        modern_props['thermal_diffusivity'] = material_db.calculate_thermal_diffusivity(modern_props)
         
         # Add source temperature to properties
         hypocaust_props['source_temp'] = source_temp

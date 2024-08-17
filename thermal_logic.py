@@ -3,8 +3,23 @@ from scipy.integrate import odeint
 
 class ThermalSimulation:
     def __init__(self, room_dimensions, material_properties, system_type='modern'):
+        """Initialize thermal simulation with error handling for properties"""
         self.dimensions = room_dimensions
-        self.properties = material_properties
+        
+        # Verify required properties
+        required_props = ['thermal_conductivity', 'density', 'specific_heat']
+        missing_props = [prop for prop in required_props if prop not in material_properties]
+        if missing_props:
+            raise ValueError(f"Missing required material properties: {', '.join(missing_props)}")
+        
+        # Create a copy of properties and calculate thermal diffusivity if not provided
+        self.properties = material_properties.copy()
+        if 'thermal_diffusivity' not in self.properties:
+            self.properties['thermal_diffusivity'] = (
+                self.properties['thermal_conductivity'] / 
+                (self.properties['density'] * self.properties['specific_heat'])
+            )
+        
         self.system_type = system_type
         self.grid_size = (50, 50)
         
