@@ -34,6 +34,9 @@ class ThermalSimulation:
         T = np.ones(self.grid_size) * initial_temp
         self.time_series_data = []  # Reset time series data
         
+        # Store initial energy
+        initial_energy = self.calculate_total_energy(T)
+        
         # Apply boundary conditions based on system type
         if self.system_type == 'hypocaust':
             # Multiple heat sources from floor with pillar conduction
@@ -74,11 +77,22 @@ class ThermalSimulation:
             # Store time series data every 5 steps
             if t % 5 == 0:
                 metrics = self.calculate_efficiency(T)
+                current_energy = self.calculate_total_energy(T)
+                energy_retention = current_energy / initial_energy if initial_energy > 0 else 1.0
+                
+                # Calculate hourly temperature change
+                hours_elapsed = (t * dt) / 3600  # Convert simulation time to hours
+                temp_change_rate = (np.mean(T) - initial_temp) / (hours_elapsed if hours_elapsed > 0 else 1)
+                
                 self.time_series_data.append({
                     'time_step': t,
+                    'hours_elapsed': hours_elapsed,
                     'mean_temperature': metrics['mean_temperature'],
                     'uniformity': metrics['uniformity'],
-                    'efficiency': metrics['efficiency']
+                    'efficiency': metrics['efficiency'],
+                    'energy_retention': energy_retention,
+                    'temp_change_rate': temp_change_rate,
+                    'total_energy': current_energy
                 })
             
         return T
@@ -96,6 +110,12 @@ class ThermalSimulation:
             'uniformity': temp_uniformity,
             'efficiency': system_factor * temp_uniformity * (mean_temp/self.properties['source_temp'])
         }
+    
+    def calculate_total_energy(self, temperature_distribution):
+        """Calculate total thermal energy in the system"""
+        volume = self.dimensions[0] * self.dimensions[1] / (self.grid_size[0] * self.grid_size[1])
+        return np.sum(temperature_distribution * self.properties['density'] * 
+                     self.properties['specific_heat'] * volume)
     
     def get_time_series_data(self):
         """Return time series data for analysis"""
