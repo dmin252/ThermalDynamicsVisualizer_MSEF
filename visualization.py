@@ -2,10 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import os
-import cairosvg
-from io import BytesIO
 
 class HeatingVisualizer:
     def __init__(self, width=800, height=400):
@@ -16,165 +13,169 @@ class HeatingVisualizer:
             self.font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", self.font_size)
         except:
             self.font = ImageFont.load_default()
-
-    def create_time_series_plot(self, hypocaust_data, modern_data):
-        """Create interactive time series comparison plot with enhanced features"""
-        fig = make_subplots(
-            rows=5, cols=1,
-            subplot_titles=(
-                'Mean Temperature Over Time',
-                'Temperature Change Rate (°C/hour)',
-                'Energy Retention Over Time',
-                'Temperature Uniformity',
-                'System Efficiency'
-            ),
-            vertical_spacing=0.08,
-            row_heights=[0.2, 0.2, 0.2, 0.2, 0.2]
+        
+    def _draw_label_with_leader(self, draw, start_pos, text, color='black'):
+        """Draw text label with a leader line connecting to component"""
+        text_width = draw.textlength(text, font=self.font)
+        text_height = self.font_size
+        
+        # Calculate end position for leader line (offset from start position)
+        end_x = start_pos[0] + (30 if start_pos[0] < self.width/2 else -30)
+        end_y = start_pos[1] - 20
+        
+        # Draw leader line
+        draw.line([start_pos[0], start_pos[1], end_x, end_y], fill=color, width=1)
+        
+        # Position text based on which side of the image we're on
+        if start_pos[0] < self.width/2:
+            text_pos = (end_x + 5, end_y - text_height/2)
+        else:
+            text_pos = (end_x - text_width - 5, end_y - text_height/2)
+        
+        # Draw text
+        draw.text(text_pos, text, font=self.font, fill=color)
+        
+    def _draw_flow_arrow(self, draw, start_pos, end_pos, color='red', width=2):
+        """Draw an arrow to indicate flow direction"""
+        draw.line([start_pos, end_pos], fill=color, width=width)
+        # Add arrowhead
+        angle = np.arctan2(end_pos[1] - start_pos[1], end_pos[0] - start_pos[0])
+        arrow_length = 10
+        arrow_angle = np.pi/6  # 30 degrees
+        
+        # Calculate arrowhead points
+        point1 = (
+            end_pos[0] - arrow_length * np.cos(angle + arrow_angle),
+            end_pos[1] - arrow_length * np.sin(angle + arrow_angle)
+        )
+        point2 = (
+            end_pos[0] - arrow_length * np.cos(angle - arrow_angle),
+            end_pos[1] - arrow_length * np.sin(angle - arrow_angle)
         )
         
-        # Extract time data
-        time_steps_h = [d['hours_elapsed'] for d in hypocaust_data]
-        time_steps_m = [d['hours_elapsed'] for d in modern_data]
+        draw.line([end_pos, point1], fill=color, width=width)
+        draw.line([end_pos, point2], fill=color, width=width)
         
-        # Define metrics to plot
-        metrics = [
-            ('mean_temperature', 'Temperature (°C)'),
-            ('temp_change_rate', 'Rate (°C/hour)'),
-            ('energy_retention', 'Retention Ratio'),
-            ('uniformity', 'Uniformity'),
-            ('efficiency', 'Efficiency')
+    def _draw_hypocaust(self, draw):
+        """Draw detailed hypocaust system diagram with annotations"""
+        # Room outline
+        draw.rectangle([50, 50, 750, 350], outline='black')
+        
+        # Underground chamber (Hypocaustum)
+        draw.rectangle([50, 300, 750, 350], outline='black', fill='brown')
+        self._draw_label_with_leader(draw, (400, 325), "Hypocaustum (Hollow Space)", "white")
+        
+        # Floor tiles (Suspensura)
+        draw.rectangle([50, 290, 750, 300], fill='gray', outline='black')
+        self._draw_label_with_leader(draw, (200, 295), "Suspensura (Floor Tiles)")
+        
+        # Pillars (Pilae) in staggered arrangement
+        pillar_positions = [(100, 250), (200, 270), (300, 250), (400, 270), 
+                          (500, 250), (600, 270), (700, 250)]
+        for x, y in pillar_positions:
+            draw.rectangle([x, y, x+20, 300], fill='gray')
+        self._draw_label_with_leader(draw, (pillar_positions[2][0], pillar_positions[2][1]), 
+                                   "Pilae (Support Pillars)")
+        
+        # Underground furnace (Praefurnium)
+        draw.rectangle([50, 350, 150, 380], fill='red')
+        draw.polygon([(70, 350), (90, 330), (110, 350)], fill='orange')
+        self._draw_label_with_leader(draw, (100, 365), "Praefurnium (Furnace)", "white")
+        
+        # Wall ducts (Tubuli)
+        for x in [60, 740]:
+            for y in range(100, 301, 50):
+                draw.rectangle([x-5, y, x+5, y+40], fill='orange', outline='black')
+        self._draw_label_with_leader(draw, (60, 150), "Tubuli (Wall Ducts)")
+        
+        # Hot air flow patterns
+        flow_points = [
+            [(150, 340), (300, 320)],
+            [(350, 320), (500, 340)],
+            [(550, 340), (700, 320)],
+            [(100, 200), (100, 150)],  # Vertical flow in tubuli
+            [(700, 200), (700, 150)]
         ]
+        for start, end in flow_points:
+            self._draw_flow_arrow(draw, start, end, 'red', 2)
         
-        # Colors for systems
-        colors = {'hypocaust': 'firebrick', 'modern': 'royalblue'}
+    def _draw_modern(self, draw):
+        """Draw detailed modern heating system diagram with annotations"""
+        # Room outline
+        draw.rectangle([50, 50, 750, 350], outline='black')
         
-        # Add traces for each metric
-        for row, (metric, label) in enumerate(metrics, 1):
-            # Hypocaust system data
-            hypocaust_y = [d[metric] for d in hypocaust_data]
-            fig.add_trace(
-                go.Scatter(
-                    x=time_steps_h,
-                    y=hypocaust_y,
-                    name=f'Hypocaust {metric.replace("_", " ").title()}',
-                    line=dict(color=colors['hypocaust']),
-                    hovertemplate=(
-                        f"Time: %{{x:.1f}} hours<br>"
-                        f"{label}: %{{y:.2f}}<br>"
-                        f"<extra>Hypocaust System</extra>"
-                    )
-                ),
-                row=row, col=1
-            )
-            
-            # Modern system data
-            modern_y = [d[metric] for d in modern_data]
-            fig.add_trace(
-                go.Scatter(
-                    x=time_steps_m,
-                    y=modern_y,
-                    name=f'Modern {metric.replace("_", " ").title()}',
-                    line=dict(color=colors['modern']),
-                    hovertemplate=(
-                        f"Time: %{{x:.1f}} hours<br>"
-                        f"{label}: %{{y:.2f}}<br>"
-                        f"<extra>Modern System</extra>"
-                    )
-                ),
-                row=row, col=1
-            )
-            
-            # Add annotations for critical points
-            if metric == 'efficiency':
-                max_h_idx = np.argmax(hypocaust_y)
-                max_m_idx = np.argmax(modern_y)
-                
-                # Add annotation for maximum efficiency points
-                fig.add_annotation(
-                    x=time_steps_h[max_h_idx], y=hypocaust_y[max_h_idx],
-                    text="Peak Efficiency",
-                    showarrow=True,
-                    arrowhead=1,
-                    row=row, col=1,
-                    font=dict(color=colors['hypocaust'])
-                )
-                fig.add_annotation(
-                    x=time_steps_m[max_m_idx], y=modern_y[max_m_idx],
-                    text="Peak Efficiency",
-                    showarrow=True,
-                    arrowhead=1,
-                    row=row, col=1,
-                    font=dict(color=colors['modern'])
-                )
-            
-            # Update y-axis labels
-            fig.update_yaxes(title_text=label, row=row, col=1)
+        # Radiator with fins
+        base_x, base_y = 100, 100
+        draw.rectangle([base_x, base_y, base_x+50, base_y+200], fill='red', outline='black')
+        self._draw_label_with_leader(draw, (base_x+25, base_y+100), "Radiator Unit")
         
-        # Update layout
-        fig.update_layout(
-            height=1200,
-            showlegend=True,
-            title_text="Detailed Time Series Analysis of Heating Systems",
-            xaxis5_title="Time (hours)",
-            hovermode='x unified',
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=-0.2,
-                xanchor="center",
-                x=0.5
-            )
-        )
+        # Add radiator fins
+        for y in range(base_y+20, base_y+200, 20):
+            draw.rectangle([base_x-10, y, base_x+60, y+5], fill='red', outline='black')
         
-        # Add vertical guidelines at critical points
-        fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
-        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
+        # Supply and return pipes
+        draw.rectangle([base_x+20, base_y-30, base_x+30, base_y], fill='red')
+        draw.rectangle([base_x+20, base_y+200, base_x+30, base_y+230], fill='blue')
+        self._draw_label_with_leader(draw, (base_x+25, base_y-15), "Supply Pipe")
+        self._draw_label_with_leader(draw, (base_x+25, base_y+215), "Return Pipe")
         
-        return fig
-
-    # [Previous methods remain unchanged...]
-    
+        # Temperature control valve
+        valve_y = base_y+200
+        draw.ellipse([base_x+15, valve_y+5, base_x+35, valve_y+25], fill='gray')
+        self._draw_label_with_leader(draw, (base_x+25, valve_y+15), "Control Valve")
+        
+        # Wall mounting points
+        mount_points = [(base_x-10, base_y+50), (base_x-10, base_y+150)]
+        for x, y in mount_points:
+            draw.rectangle([x-5, y-5, x+5, y+5], fill='gray')
+        self._draw_label_with_leader(draw, mount_points[0], "Wall Mount")
+        
+        # Room air circulation patterns
+        circulation_points = [
+            [(160, 150), (200, 120)],  # Rising hot air
+            [(200, 120), (300, 100)],  # Ceiling flow
+            [(300, 100), (400, 120)],
+            [(400, 120), (400, 200)],  # Falling cool air
+            [(400, 200), (300, 220)],
+            [(300, 220), (200, 200)]   # Return flow
+        ]
+        for start, end in circulation_points:
+            self._draw_flow_arrow(draw, start, end, 'blue', 2)
+        
+        # Add legend
+        legend_y = 320
+        # Hot air flow
+        draw.line([600, legend_y, 650, legend_y], fill='red', width=2)
+        draw.text((660, legend_y-8), "Hot Air Flow", font=self.font, fill='black')
+        # Cold air flow
+        draw.line([600, legend_y+20, 650, legend_y+20], fill='blue', width=2)
+        draw.text((660, legend_y+12), "Cold Air Flow", font=self.font, fill='black')
+        
     def create_system_diagram(self, system_type):
-        """Load and process SVG template for system visualization"""
-        template_path = f"assets/{system_type}_template.svg"
+        """Create detailed diagram of heating system"""
+        img = Image.new('RGB', (self.width, self.height), 'white')
+        draw = ImageDraw.Draw(img)
         
-        try:
-            # Read the SVG template
-            with open(template_path, 'r') as f:
-                svg_content = f.read()
+        if system_type == 'hypocaust':
+            self._draw_hypocaust(draw)
+        else:
+            self._draw_modern(draw)
             
-            # Convert SVG to PNG using cairosvg
-            png_data = cairosvg.svg2png(bytestring=svg_content.encode('utf-8'))
-            
-            # Create PIL Image from PNG data
-            image = Image.open(BytesIO(png_data))
-            return image
-            
-        except Exception as e:
-            print(f"Error creating system diagram: {e}")
-            # Create a blank image with error message
-            img = Image.new('RGB', (self.width, self.height), 'white')
-            draw = ImageDraw.Draw(img)
-            draw.text((self.width//2, self.height//2), "Error loading diagram", 
-                     fill='red', font=self.font, anchor="mm")
-            return img
-
+        return img
+    
     def create_heatmap(self, temperature_data):
         """Create detailed heatmap visualization of temperature distribution"""
-        fig, ax = plt.subplots(figsize=(10, 6))
-        im = ax.imshow(temperature_data, cmap='RdYlBu_r', interpolation='bicubic')
-        plt.colorbar(im, ax=ax, label='Temperature (°C)')
+        plt.figure(figsize=(10, 6))
+        plt.imshow(temperature_data, cmap='RdYlBu_r', interpolation='bicubic')
+        plt.colorbar(label='Temperature (°C)')
         
         # Add contour lines for better visualization of temperature gradients
-        cs = ax.contour(temperature_data, colors='black', alpha=0.5, 
-                     levels=np.linspace(temperature_data.min(), temperature_data.max(), 10))
+        plt.contour(temperature_data, colors='black', alpha=0.5, 
+                   levels=np.linspace(temperature_data.min(), temperature_data.max(), 10))
         
-        ax.set_title('Temperature Distribution')
-        ax.set_xlabel('Room Width')
-        ax.set_ylabel('Room Height')
-        
-        # Ensure the plot is properly formatted for Streamlit
-        plt.tight_layout()
+        # Convert plot to image
+        fig = plt.gcf()
+        plt.close()
         
         return fig
 
@@ -191,10 +192,7 @@ class HeatingVisualizer:
             y=Y,
             z=temperature_data,
             colorscale='RdYlBu_r',
-            colorbar=dict(
-                title='Temperature (°C)',
-                titleside='right'
-            )
+            colorbar=dict(title='Temperature (°C)')
         )])
         
         # Update layout for better visualization
@@ -209,8 +207,7 @@ class HeatingVisualizer:
                 )
             ),
             width=800,
-            height=600,
-            margin=dict(l=0, r=0, t=30, b=0)
+            height=600
         )
         
         return fig
