@@ -1,0 +1,31 @@
+[theme]
+primaryColor = "#1f77b4"
+backgroundColor = "#212529"
+secondaryBackgroundColor = "#343a40"
+textColor = "#f8f9fa"
+
+.stButton > button {
+    border-radius: 4px;
+    margin: 10px 0;
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.stSelectbox, .stNumberInput {
+    background-color: #343a40;
+    border: 1px solid #495057;
+    color: #f8f9fa;
+}
+
+.stSelectbox:focus, .stNumberInput:focus {
+    border-color: var(--primary-color);
+}
+
+.element-container {
+    padding: 1rem;
+}
+
+.stMarkdown h4 {
+    margin-top: 0.5rem;
+    font-weight: bold;
+}
