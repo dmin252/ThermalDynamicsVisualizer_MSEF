@@ -32,11 +32,6 @@ class ThermalSimulation:
         # Initialize temperature grid based on system type
         T = np.ones(self.grid_size) * initial_temp
         
-        # Store temperature evolution over time
-        T_history = [T.copy()]
-        mean_temp_history = [np.mean(T)]
-        efficiency_history = []
-        
         # Apply boundary conditions based on system type
         if self.system_type == 'hypocaust':
             # Multiple heat sources from floor with pillar conduction
@@ -74,15 +69,7 @@ class ThermalSimulation:
                         )
             T = T_new
             
-            # Store temperature data for time series analysis
-            T_history.append(T.copy())
-            mean_temp_history.append(np.mean(T))
-            
-            # Calculate and store efficiency at each time step
-            metrics = self.calculate_efficiency(T)
-            efficiency_history.append(metrics['efficiency'])
-            
-        return T, T_history, mean_temp_history, efficiency_history
+        return T
     
     def calculate_efficiency(self, temperature_distribution):
         """Calculate heating system efficiency"""
