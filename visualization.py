@@ -211,3 +211,47 @@ class HeatingVisualizer:
         )
         
         return fig
+
+    def create_energy_retention_plot(self, time_hours, hypocaust_retention, modern_retention):
+        """Create energy retention comparison plot"""
+        fig = go.Figure()
+        
+        # Add traces for both systems
+        fig.add_trace(go.Scatter(
+            x=time_hours,
+            y=hypocaust_retention,
+            name='Hypocaust System',
+            line=dict(color='#FF4B4B', width=2),
+            hovertemplate='Hour: %{x}<br>Retention: %{y:.1f}%<extra></extra>'
+        ))
+        
+        fig.add_trace(go.Scatter(
+            x=time_hours,
+            y=modern_retention,
+            name='Modern System',
+            line=dict(color='#1F77B4', width=2),
+            hovertemplate='Hour: %{x}<br>Retention: %{y:.1f}%<extra></extra>'
+        ))
+        
+        # Update layout
+        fig.update_layout(
+            title='24-Hour Energy Retention Comparison',
+            xaxis_title='Time (hours)',
+            yaxis_title='Energy Retained (%)',
+            hovermode='x unified',
+            showlegend=True,
+            legend=dict(
+                yanchor="top",
+                y=0.99,
+                xanchor="left",
+                x=0.01
+            ),
+            width=800,
+            height=400
+        )
+        
+        # Update axes
+        fig.update_xaxes(range=[0, 24], dtick=2)
+        fig.update_yaxes(range=[0, 100], dtick=10)
+        
+        return fig

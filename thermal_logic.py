@@ -98,3 +98,31 @@ class ThermalSimulation:
             source: power_consumption * co2_per_kwh[source] * duration 
             for source in co2_per_kwh
         }
+
+    def calculate_hourly_energy_retention(self, initial_temp, duration_hours=24):
+        """Calculate hourly energy retention over specified duration"""
+        # Calculate thermal mass of the system
+        volume = self.dimensions[0] * self.dimensions[1]  # Area of the room
+        thermal_mass = volume * self.properties['density'] * self.properties['specific_heat']
+        
+        # Initialize arrays
+        time_hours = np.arange(duration_hours + 1)
+        energy_retention = np.zeros(duration_hours + 1)
+        energy_retention[0] = 100  # Start at 100%
+        
+        # Heat loss coefficient based on system type and material properties
+        base_loss_rate = (self.properties['thermal_conductivity'] /
+                         (self.properties['density'] * self.properties['specific_heat']))
+        
+        # Adjust loss rate based on system type
+        system_factor = 0.85 if self.system_type == 'hypocaust' else 1.0
+        loss_rate = base_loss_rate * system_factor
+        
+        # Calculate energy retention for each hour
+        initial_energy = thermal_mass * (self.properties['source_temp'] - initial_temp)
+        for hour in range(1, duration_hours + 1):
+            # Exponential decay model with system-specific characteristics
+            retention = np.exp(-loss_rate * hour)
+            energy_retention[hour] = retention * 100
+            
+        return time_hours, energy_retention

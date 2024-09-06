@@ -145,6 +145,19 @@ def main():
             for key, value in modern_formatted.items():
                 st.write(f"- {key.title()}: {value}")
 
+        # Energy Retention Analysis
+        st.header("Energy Retention Analysis")
+        
+        # Calculate energy retention for both systems
+        hypocaust_hours, hypocaust_retention = hypocaust_sim.calculate_hourly_energy_retention(initial_temp)
+        modern_hours, modern_retention = modern_sim.calculate_hourly_energy_retention(initial_temp)
+        
+        # Create and display energy retention plot
+        retention_plot = visualizer.create_energy_retention_plot(
+            hypocaust_hours, hypocaust_retention, modern_retention
+        )
+        st.plotly_chart(retention_plot)
+        
         # Environmental Impact Analysis
         st.header("Environmental Impact")
         
