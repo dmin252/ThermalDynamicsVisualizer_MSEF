@@ -138,10 +138,9 @@ class ThermalSimulation:
             thermal_mass_factor = 1.0  # Standard thermal mass
             insulation_factor = 1.0   # Standard insulation
             
-        # Calculate heat loss rate
-        # Base rate considering surface area, U-value, and thermal mass
+        # Calculate heat loss rate without scaling factor
         base_loss_rate = (u_value * surface_area) / (thermal_mass * thermal_mass_factor)
-        loss_rate = base_loss_rate * insulation_factor * 0.15  # Scaling factor for realistic decay
+        loss_rate = base_loss_rate * insulation_factor
         
         print(f"Debug - System parameters:")
         print(f"Volume: {volume:.2f} m³")
@@ -149,13 +148,14 @@ class ThermalSimulation:
         print(f"Thermal mass: {thermal_mass:.2f} J/K")
         print(f"U-value: {u_value:.4f} W/m²K")
         print(f"System type: {self.system_type}")
-        print(f"Loss rate: {loss_rate:.6f}")
+        print(f"Base loss rate: {base_loss_rate:.6f}")
+        print(f"Final loss rate: {loss_rate:.6f}")
         
-        # Calculate retention curve using modified exponential decay
+        # Calculate retention curve using exponential decay
         for hour in range(1, duration_hours + 1):
             retention = 100 * np.exp(-loss_rate * hour)
             # Ensure retention stays within physical limits
-            retention = max(5, min(100, retention))  # Minimum 5% retention
+            retention = max(20, min(100, retention))  # Minimum 20% retention
             energy_retention[hour] = retention
             
         print(f"Initial retention: {energy_retention[0]:.1f}%")
