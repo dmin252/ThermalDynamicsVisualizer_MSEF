@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
 import plotly.graph_objects as go
 import os
+from datetime import datetime, timedelta
 
 class HeatingVisualizer:
     def __init__(self, width=800, height=400):
@@ -213,16 +214,26 @@ class HeatingVisualizer:
         return fig
 
     def create_energy_retention_plot(self, time_hours, hypocaust_retention, modern_retention):
-        """Create energy retention comparison plot"""
+        """Create energy retention comparison plot with enhanced tooltips"""
         fig = go.Figure()
         
-        # Add traces for both systems
+        # Generate time of day labels
+        start_time = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        time_labels = [(start_time + timedelta(hours=h)).strftime('%H:%M') for h in time_hours]
+        
+        # Add traces for both systems with enhanced tooltips
         fig.add_trace(go.Scatter(
             x=time_hours,
             y=hypocaust_retention,
             name='Hypocaust System',
             line=dict(color='#FF4B4B', width=2),
-            hovertemplate='Hour: %{x}<br>Retention: %{y:.1f}%<extra></extra>'
+            hovertemplate=(
+                '<b>Hypocaust System</b><br>' +
+                'Time: %{customdata}<br>' +
+                'Retention: %{y:.1f}%<br>' +
+                'Baseline: 85% ± 10%<extra></extra>'
+            ),
+            customdata=time_labels
         ))
         
         fig.add_trace(go.Scatter(
@@ -230,12 +241,21 @@ class HeatingVisualizer:
             y=modern_retention,
             name='Modern System',
             line=dict(color='#1F77B4', width=2),
-            hovertemplate='Hour: %{x}<br>Retention: %{y:.1f}%<extra></extra>'
+            hovertemplate=(
+                '<b>Modern System</b><br>' +
+                'Time: %{customdata}<br>' +
+                'Retention: %{y:.1f}%<br>' +
+                'Baseline: 75% ± 15%<extra></extra>'
+            ),
+            customdata=time_labels
         ))
         
-        # Update layout
+        # Update layout with enhanced styling
         fig.update_layout(
-            title='24-Hour Energy Retention Comparison',
+            title={
+                'text': '24-Hour Energy Retention Comparison',
+                'font': dict(size=24)
+            },
             xaxis_title='Time (hours)',
             yaxis_title='Energy Retained (%)',
             hovermode='x unified',
@@ -244,14 +264,59 @@ class HeatingVisualizer:
                 yanchor="top",
                 y=0.99,
                 xanchor="left",
-                x=0.01
+                x=0.01,
+                bgcolor='rgba(255, 255, 255, 0.8)',
+                bordercolor='rgba(0, 0, 0, 0.2)',
+                borderwidth=1
             ),
             width=800,
-            height=400
+            height=400,
+            plot_bgcolor='white',
+            paper_bgcolor='white'
         )
         
-        # Update axes
-        fig.update_xaxes(range=[0, 24], dtick=2)
-        fig.update_yaxes(range=[0, 100], dtick=10)
+        # Update axes with enhanced styling
+        fig.update_xaxes(
+            range=[0, 24],
+            dtick=2,
+            gridcolor='rgba(0, 0, 0, 0.1)',
+            showline=True,
+            linewidth=1,
+            linecolor='black',
+            ticktext=time_labels[::2],  # Show every 2 hours
+            tickvals=list(range(0, 25, 2))
+        )
+        
+        fig.update_yaxes(
+            range=[0, 100],
+            dtick=10,
+            gridcolor='rgba(0, 0, 0, 0.1)',
+            showline=True,
+            linewidth=1,
+            linecolor='black'
+        )
+        
+        # Add a rectangular shape to highlight the baseline ranges
+        fig.add_shape(
+            type="rect",
+            x0=0,
+            x1=24,
+            y0=75,
+            y1=95,
+            fillcolor="rgba(255, 75, 75, 0.1)",
+            line=dict(width=0),
+            name="Hypocaust Range"
+        )
+        
+        fig.add_shape(
+            type="rect",
+            x0=0,
+            x1=24,
+            y0=60,
+            y1=90,
+            fillcolor="rgba(31, 119, 180, 0.1)",
+            line=dict(width=0),
+            name="Modern Range"
+        )
         
         return fig
