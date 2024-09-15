@@ -13,88 +13,6 @@ class HeatingVisualizer:
             self.font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", self.font_size)
         except:
             self.font = ImageFont.load_default()
-    
-    def create_3d_system_diagram(self, system_type):
-        """Create 3D diagram of heating system"""
-        # Create 3D figure
-        fig = go.Figure()
-        
-        if system_type == 'hypocaust':
-            # Add 3D room structure
-            fig.add_trace(go.Mesh3d(
-                x=[0,0,0,0,1,1,1,1],
-                y=[0,1,1,0,0,1,1,0],
-                z=[0,0,1,1,0,0,1,1],
-                opacity=0.4,
-                color='gray'
-            ))
-            
-            # Add pillars
-            for x in np.linspace(0.2, 0.8, 5):
-                fig.add_trace(go.Mesh3d(
-                    x=[x,x,x,x,x+0.05,x+0.05,x+0.05,x+0.05],
-                    y=[0.2,0.3,0.3,0.2,0.2,0.3,0.3,0.2],
-                    z=[0,0,0.3,0.3,0,0,0.3,0.3],
-                    color='brown'
-                ))
-            
-            # Add heat flow arrows using cone plots
-            fig.add_trace(go.Cone(
-                x=[0.2,0.4,0.6,0.8],
-                y=[0.25,0.25,0.25,0.25],
-                z=[0.1,0.1,0.1,0.1],
-                u=[0,0,0,0],
-                v=[0,0,0,0],
-                w=[0.2,0.2,0.2,0.2],
-                colorscale='Reds',
-                showscale=False
-            ))
-            
-        else:  # modern system
-            # Add room structure
-            fig.add_trace(go.Mesh3d(
-                x=[0,0,0,0,1,1,1,1],
-                y=[0,1,1,0,0,1,1,0],
-                z=[0,0,1,1,0,0,1,1],
-                opacity=0.4,
-                color='gray'
-            ))
-            
-            # Add radiator
-            fig.add_trace(go.Mesh3d(
-                x=[0.1,0.1,0.1,0.1,0.2,0.2,0.2,0.2],
-                y=[0.3,0.7,0.7,0.3,0.3,0.7,0.7,0.3],
-                z=[0.2,0.2,0.8,0.8,0.2,0.2,0.8,0.8],
-                color='red'
-            ))
-            
-            # Add convection arrows
-            fig.add_trace(go.Cone(
-                x=[0.3,0.5,0.7],
-                y=[0.5,0.5,0.5],
-                z=[0.6,0.8,0.6],
-                u=[0.2,0,0.2],
-                v=[0,0,0],
-                w=[0.1,-0.1,-0.1],
-                colorscale='Reds',
-                showscale=False
-            ))
-        
-        # Update layout
-        fig.update_layout(
-            title=f'3D {system_type.title()} System',
-            scene=dict(
-                aspectmode='cube',
-                xaxis_title='Length',
-                yaxis_title='Width',
-                zaxis_title='Height'
-            ),
-            showlegend=True,
-            width=800,
-            height=600
-        )
-        
-        return fig
         
     def _draw_label_with_leader(self, draw, start_pos, text, color='black'):
         """Draw text label with a leader line connecting to component"""
@@ -137,6 +55,101 @@ class HeatingVisualizer:
         
         draw.line([end_pos, point1], fill=color, width=width)
         draw.line([end_pos, point2], fill=color, width=width)
+        
+    def _draw_hypocaust(self, draw):
+        """Draw detailed hypocaust system diagram with annotations"""
+        # Room outline
+        draw.rectangle([50, 50, 750, 350], outline='black')
+        
+        # Underground chamber (Hypocaustum)
+        draw.rectangle([50, 300, 750, 350], outline='black', fill='brown')
+        self._draw_label_with_leader(draw, (400, 325), "Hypocaustum (Hollow Space)", "white")
+        
+        # Floor tiles (Suspensura)
+        draw.rectangle([50, 290, 750, 300], fill='gray', outline='black')
+        self._draw_label_with_leader(draw, (200, 295), "Suspensura (Floor Tiles)")
+        
+        # Pillars (Pilae) in staggered arrangement
+        pillar_positions = [(100, 250), (200, 270), (300, 250), (400, 270), 
+                          (500, 250), (600, 270), (700, 250)]
+        for x, y in pillar_positions:
+            draw.rectangle([x, y, x+20, 300], fill='gray')
+        self._draw_label_with_leader(draw, (pillar_positions[2][0], pillar_positions[2][1]), 
+                                   "Pilae (Support Pillars)")
+        
+        # Underground furnace (Praefurnium)
+        draw.rectangle([50, 350, 150, 380], fill='red')
+        draw.polygon([(70, 350), (90, 330), (110, 350)], fill='orange')
+        self._draw_label_with_leader(draw, (100, 365), "Praefurnium (Furnace)", "white")
+        
+        # Wall ducts (Tubuli)
+        for x in [60, 740]:
+            for y in range(100, 301, 50):
+                draw.rectangle([x-5, y, x+5, y+40], fill='orange', outline='black')
+        self._draw_label_with_leader(draw, (60, 150), "Tubuli (Wall Ducts)")
+        
+        # Hot air flow patterns
+        flow_points = [
+            [(150, 340), (300, 320)],
+            [(350, 320), (500, 340)],
+            [(550, 340), (700, 320)],
+            [(100, 200), (100, 150)],  # Vertical flow in tubuli
+            [(700, 200), (700, 150)]
+        ]
+        for start, end in flow_points:
+            self._draw_flow_arrow(draw, start, end, 'red', 2)
+        
+    def _draw_modern(self, draw):
+        """Draw detailed modern heating system diagram with annotations"""
+        # Room outline
+        draw.rectangle([50, 50, 750, 350], outline='black')
+        
+        # Radiator with fins
+        base_x, base_y = 100, 100
+        draw.rectangle([base_x, base_y, base_x+50, base_y+200], fill='red', outline='black')
+        self._draw_label_with_leader(draw, (base_x+25, base_y+100), "Radiator Unit")
+        
+        # Add radiator fins
+        for y in range(base_y+20, base_y+200, 20):
+            draw.rectangle([base_x-10, y, base_x+60, y+5], fill='red', outline='black')
+        
+        # Supply and return pipes
+        draw.rectangle([base_x+20, base_y-30, base_x+30, base_y], fill='red')
+        draw.rectangle([base_x+20, base_y+200, base_x+30, base_y+230], fill='blue')
+        self._draw_label_with_leader(draw, (base_x+25, base_y-15), "Supply Pipe")
+        self._draw_label_with_leader(draw, (base_x+25, base_y+215), "Return Pipe")
+        
+        # Temperature control valve
+        valve_y = base_y+200
+        draw.ellipse([base_x+15, valve_y+5, base_x+35, valve_y+25], fill='gray')
+        self._draw_label_with_leader(draw, (base_x+25, valve_y+15), "Control Valve")
+        
+        # Wall mounting points
+        mount_points = [(base_x-10, base_y+50), (base_x-10, base_y+150)]
+        for x, y in mount_points:
+            draw.rectangle([x-5, y-5, x+5, y+5], fill='gray')
+        self._draw_label_with_leader(draw, mount_points[0], "Wall Mount")
+        
+        # Room air circulation patterns
+        circulation_points = [
+            [(160, 150), (200, 120)],  # Rising hot air
+            [(200, 120), (300, 100)],  # Ceiling flow
+            [(300, 100), (400, 120)],
+            [(400, 120), (400, 200)],  # Falling cool air
+            [(400, 200), (300, 220)],
+            [(300, 220), (200, 200)]   # Return flow
+        ]
+        for start, end in circulation_points:
+            self._draw_flow_arrow(draw, start, end, 'blue', 2)
+        
+        # Add legend
+        legend_y = 320
+        # Hot air flow
+        draw.line([600, legend_y, 650, legend_y], fill='red', width=2)
+        draw.text((660, legend_y-8), "Hot Air Flow", font=self.font, fill='black')
+        # Cold air flow
+        draw.line([600, legend_y+20, 650, legend_y+20], fill='blue', width=2)
+        draw.text((660, legend_y+12), "Cold Air Flow", font=self.font, fill='black')
         
     def create_system_diagram(self, system_type):
         """Create detailed diagram of heating system"""
