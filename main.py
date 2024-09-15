@@ -99,9 +99,9 @@ def main():
             hypocaust_temp = hypocaust_sim.calculate_heat_transfer(initial_temp, time_steps)
             hypocaust_metrics = hypocaust_sim.calculate_efficiency(hypocaust_temp)
             
-            # System diagram
+            # 3D System diagram
             visualizer = HeatingVisualizer()
-            st.image(visualizer.create_system_diagram('hypocaust'))
+            st.plotly_chart(visualizer.create_3d_system_diagram('hypocaust'))
             
             # 2D heatmap
             st.subheader("2D Heat Distribution")
@@ -125,8 +125,8 @@ def main():
             modern_temp = modern_sim.calculate_heat_transfer(initial_temp, time_steps)
             modern_metrics = modern_sim.calculate_efficiency(modern_temp)
             
-            # System diagram
-            st.image(visualizer.create_system_diagram('modern'))
+            # 3D System diagram
+            st.plotly_chart(visualizer.create_3d_system_diagram('modern'))
             
             # 2D heatmap
             st.subheader("2D Heat Distribution")
