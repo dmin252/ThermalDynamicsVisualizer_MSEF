@@ -24,6 +24,21 @@ class ThermalSimulation:
         self.system_type = system_type
         self.grid_size = (50, 50)
         
+    def update_system_params(self, params):
+        """Update system-specific parameters"""
+        self.system_params = params
+        
+        # Update grid initialization based on system parameters
+        if self.system_type == 'hypocaust':
+            self.pillar_height = params['pillar_height']
+            self.pillar_spacing = params['pillar_spacing']
+            self.chamber_height = params['chamber_height']
+        else:
+            self.radiator_height = params['radiator_height']
+            self.radiator_width = params['radiator_width']
+            self.radiator_placement = params['radiator_placement']
+            self.pipe_diameter = params['pipe_diameter']
+        
     def calculate_heat_transfer(self, initial_temp, time_steps):
         """Calculate heat transfer using finite difference method"""
         dx, dy = self.dimensions[0]/self.grid_size[0], self.dimensions[1]/self.grid_size[1]
@@ -35,18 +50,25 @@ class ThermalSimulation:
         
         # Apply boundary conditions based on system type
         if self.system_type == 'hypocaust':
-            # Multiple heat sources from floor with pillar conduction
-            pillar_positions = range(0, self.grid_size[0], 5)
+            # Calculate pillar positions based on spacing
+            pillar_spacing_cells = int(self.pillar_spacing * self.grid_size[0] / self.dimensions[0])
+            pillar_positions = range(0, self.grid_size[0], pillar_spacing_cells)
+            
             for x in pillar_positions:
-                # Heat source at floor
-                T[-1, x] = self.properties['source_temp']
-                # Pillar heat conduction
-                T[-10:, x] = np.linspace(initial_temp, self.properties['source_temp'], 10)
+                # Heat source at floor with actual chamber height
+                chamber_cells = int(self.chamber_height * self.grid_size[1] / self.dimensions[1])
+                T[-chamber_cells:, x] = self.properties['source_temp']
+                
+                # Pillar heat conduction with actual height
+                pillar_cells = int(self.pillar_height * self.grid_size[1] / self.dimensions[1])
+                T[-pillar_cells:, x] = np.linspace(initial_temp, self.properties['source_temp'], pillar_cells)
         else:
-            # Modern system: Single concentrated heat source from wall
-            wall_center = self.grid_size[1] // 2
-            radiator_height = self.grid_size[0] // 3
-            T[radiator_height:2*radiator_height, 0:2] = self.properties['source_temp']
+            # Modern system with actual radiator dimensions
+            radiator_height_cells = int(self.radiator_height * self.grid_size[0] / self.dimensions[0])
+            radiator_width_cells = max(1, int(self.radiator_width * self.grid_size[1] / self.dimensions[1]))
+            placement_cells = int(self.radiator_placement * self.grid_size[0] / self.dimensions[0])
+            
+            T[placement_cells:placement_cells+radiator_height_cells, 0:radiator_width_cells] = self.properties['source_temp']
         
         # Time evolution with improved physics
         for t in range(time_steps):
