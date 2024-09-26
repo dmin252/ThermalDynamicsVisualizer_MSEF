@@ -20,29 +20,22 @@ def main():
         floor_thickness = st.number_input("Floor Thickness (m)", 0.1, 1.0, 0.2, 0.1)
         wall_thickness = st.number_input("Wall Thickness (m)", 0.1, 1.0, 0.3, 0.1)
         
-        # System-specific parameters
-        system_type = st.radio("Heating System Type", ["Hypocaust", "Modern"])
+        # Hypocaust parameters
+        st.subheader("Hypocaust System")
+        hypocaust_params = {
+            'pillar_height': st.number_input("Pillar Height (m)", 0.3, 1.0, 0.5, 0.1),
+            'pillar_spacing': st.number_input("Pillar Spacing (m)", 0.5, 2.0, 1.0, 0.1),
+            'chamber_height': st.number_input("Underground Chamber Height (m)", 0.3, 1.0, 0.5, 0.1)
+        }
         
-        if system_type == "Hypocaust":
-            pillar_height = st.number_input("Pillar Height (m)", 0.3, 1.0, 0.5, 0.1)
-            pillar_spacing = st.number_input("Pillar Spacing (m)", 0.5, 2.0, 1.0, 0.1)
-            chamber_height = st.number_input("Underground Chamber Height (m)", 0.3, 1.0, 0.5, 0.1)
-            system_params = {
-                'pillar_height': pillar_height,
-                'pillar_spacing': pillar_spacing,
-                'chamber_height': chamber_height
-            }
-        else:
-            radiator_height = st.number_input("Radiator Height (m)", 0.3, 2.0, 1.0, 0.1)
-            radiator_width = st.number_input("Radiator Width (m)", 0.3, 2.0, 0.8, 0.1)
-            radiator_placement = st.number_input("Radiator Placement Height (m)", 0.1, 2.0, 0.3, 0.1)
-            pipe_diameter = st.number_input("Pipe Diameter (mm)", 10.0, 50.0, 15.0, 1.0)
-            system_params = {
-                'radiator_height': radiator_height,
-                'radiator_width': radiator_width,
-                'radiator_placement': radiator_placement,
-                'pipe_diameter': pipe_diameter / 1000  # Convert to meters
-            }
+        # Modern system parameters
+        st.subheader("Modern System")
+        modern_params = {
+            'radiator_height': st.number_input("Radiator Height (m)", 0.3, 2.0, 1.0, 0.1),
+            'radiator_width': st.number_input("Radiator Width (m)", 0.3, 2.0, 0.8, 0.1),
+            'radiator_placement': st.number_input("Radiator Placement Height (m)", 0.1, 2.0, 0.3, 0.1),
+            'pipe_diameter': st.number_input("Pipe Diameter (mm)", 10.0, 50.0, 15.0, 1.0) / 1000  # Convert to meters
+        }
 
     # Room dimensions in an expander
     with st.sidebar.expander("Room Dimensions", expanded=True):
@@ -74,55 +67,29 @@ def main():
 
     # Material Properties
     with st.sidebar.expander("Material Properties", expanded=True):
-        # Separate materials by period for the selected system
+        # Get materials by period
         ancient_materials = material_db.get_materials_by_period('ancient')
         modern_materials = material_db.get_materials_by_period('modern')
         
-        if system_type == "Hypocaust":
-            material_choices = ancient_materials['building']
-            selected_material = st.selectbox(
-                "Select Material",
-                list(material_choices.keys()),
-                format_func=lambda x: material_choices[x]['name']
-            )
-            material_props = material_choices[selected_material]
-        else:
-            material_choices = modern_materials['building']
-            selected_material = st.selectbox(
-                "Select Material",
-                list(material_choices.keys()),
-                format_func=lambda x: material_choices[x]['name']
-            )
-            material_props = material_choices[selected_material]
+        # Hypocaust material selection
+        st.subheader("Hypocaust System Materials")
+        hypocaust_material = st.selectbox(
+            "Select Hypocaust Material",
+            list(ancient_materials['building'].keys()),
+            format_func=lambda x: ancient_materials['building'][x]['name']
+        )
+        hypocaust_props = ancient_materials['building'][hypocaust_material].copy()
         
-        # Display and allow editing of material properties
-        st.write("Material Properties:")
-        thermal_conductivity = st.number_input(
-            "Thermal Conductivity (W/mK)",
-            0.01, 500.0, float(material_props['thermal_conductivity'])
+        # Modern system material selection
+        st.subheader("Modern System Materials")
+        modern_material = st.selectbox(
+            "Select Modern Material",
+            list(modern_materials['building'].keys()),
+            format_func=lambda x: modern_materials['building'][x]['name']
         )
-        density = st.number_input(
-            "Density (kg/m³)",
-            100.0, 10000.0, float(material_props['density'])
-        )
-        specific_heat = st.number_input(
-            "Specific Heat Capacity (J/kgK)",
-            100.0, 5000.0, float(material_props['specific_heat'])
-        )
-        emissivity = st.number_input(
-            "Surface Emissivity",
-            0.1, 1.0, float(material_props['emissivity'])
-        )
-        
-        # Update material properties
-        material_props.update({
-            'thermal_conductivity': thermal_conductivity,
-            'density': density,
-            'specific_heat': specific_heat,
-            'emissivity': emissivity
-        })
+        modern_props = modern_materials['building'][modern_material].copy()
 
-    # Simulation settings in an expander
+    # Simulation settings
     with st.sidebar.expander("Simulation Settings", expanded=True):
         time_steps = st.slider("Simulation Time Steps", 50, 200, 100)
         initial_temp = st.slider("Initial Temperature (°C)", 0, 30, 15)
@@ -130,77 +97,131 @@ def main():
     # Run simulation button
     if st.sidebar.button('Run Simulation'):
         # Update material properties with energy source settings
-        material_props.update({
-            'source_temp': source_temp,
-            'efficiency': efficiency,
-            'fuel_type': fuel_type.lower()
-        })
+        for props in [hypocaust_props, modern_props]:
+            props.update({
+                'source_temp': source_temp,
+                'efficiency': efficiency,
+                'fuel_type': fuel_type.lower()
+            })
         
-        # Create simulation instance with updated parameters
-        sim = ThermalSimulation(
+        # Create simulation instances
+        hypocaust_sim = ThermalSimulation(
             (room_size['length'], room_size['width']),
-            material_props,
-            system_type=system_type.lower()
+            hypocaust_props,
+            system_type='hypocaust'
+        )
+        modern_sim = ThermalSimulation(
+            (room_size['length'], room_size['width']),
+            modern_props,
+            system_type='modern'
         )
         
-        # Update system-specific parameters
-        sim.update_system_params(system_params)
+        # Update system parameters
+        hypocaust_sim.update_system_params(hypocaust_params)
+        modern_sim.update_system_params(modern_params)
         
-        # Calculate temperature distribution
-        temp_distribution = sim.calculate_heat_transfer(initial_temp, time_steps)
-        metrics = sim.calculate_efficiency(temp_distribution)
+        # Calculate temperature distributions
+        hypocaust_temp = hypocaust_sim.calculate_heat_transfer(initial_temp, time_steps)
+        modern_temp = modern_sim.calculate_heat_transfer(initial_temp, time_steps)
+        
+        # Calculate metrics
+        hypocaust_metrics = hypocaust_sim.calculate_efficiency(hypocaust_temp)
+        modern_metrics = modern_sim.calculate_efficiency(modern_temp)
         
         # Create visualizer
         visualizer = HeatingVisualizer()
         
-        # Display system diagram
-        st.subheader(f"{system_type} System Diagram")
-        st.image(visualizer.create_system_diagram(system_type.lower()))
-        
-        # Display temperature distribution
-        st.subheader("Heat Distribution")
+        # Display system diagrams side by side
+        st.subheader("System Diagrams")
         col1, col2 = st.columns(2)
-        
         with col1:
-            st.write("2D Heat Map")
-            st.pyplot(visualizer.create_heatmap(temp_distribution))
-            
+            st.write("Hypocaust System")
+            st.image(visualizer.create_system_diagram('hypocaust'))
         with col2:
-            st.write("3D Visualization")
+            st.write("Modern Heating System")
+            st.image(visualizer.create_system_diagram('modern'))
+        
+        # Display heat distribution visualizations
+        st.subheader("Heat Distribution")
+        
+        # 2D heat maps
+        col3, col4 = st.columns(2)
+        with col3:
+            st.write("Hypocaust System - 2D Heat Map")
+            st.pyplot(visualizer.create_heatmap(hypocaust_temp))
+        with col4:
+            st.write("Modern System - 2D Heat Map")
+            st.pyplot(visualizer.create_heatmap(modern_temp))
+        
+        # 3D visualizations
+        col5, col6 = st.columns(2)
+        with col5:
+            st.write("Hypocaust System - 3D Visualization")
             st.plotly_chart(visualizer.create_3d_heatmap(
-                temp_distribution,
+                hypocaust_temp,
+                (room_size['length'], room_size['width'])
+            ))
+        with col6:
+            st.write("Modern System - 3D Visualization")
+            st.plotly_chart(visualizer.create_3d_heatmap(
+                modern_temp,
                 (room_size['length'], room_size['width'])
             ))
         
-        # Display metrics
+        # Display metrics side by side
         st.subheader("System Performance")
-        formatted_metrics = format_results(metrics)
-        for key, value in formatted_metrics.items():
-            st.write(f"- {key.title()}: {value}")
+        col7, col8 = st.columns(2)
+        with col7:
+            st.write("Hypocaust System Metrics:")
+            hypocaust_formatted = format_results(hypocaust_metrics)
+            for key, value in hypocaust_formatted.items():
+                st.write(f"- {key.title()}: {value}")
+        with col8:
+            st.write("Modern System Metrics:")
+            modern_formatted = format_results(modern_metrics)
+            for key, value in modern_formatted.items():
+                st.write(f"- {key.title()}: {value}")
         
         # Energy Retention Analysis
         st.header("Energy Retention Analysis")
-        hours, retention = sim.calculate_hourly_energy_retention(initial_temp)
+        hypocaust_hours, hypocaust_retention = hypocaust_sim.calculate_hourly_energy_retention(initial_temp)
+        modern_hours, modern_retention = modern_sim.calculate_hourly_energy_retention(initial_temp)
         
-        # Create and display energy retention plot
+        # Create and display combined energy retention plot
         retention_plot = visualizer.create_energy_retention_plot(
-            hours, retention, retention  # Using same data for comparison (will be different in actual simulation)
+            hypocaust_hours, hypocaust_retention, modern_retention
         )
         st.plotly_chart(retention_plot)
         
-        # Calculate and display power consumption
+        # Calculate power consumption for both systems
         volume = room_size['length'] * room_size['width'] * room_size['height']
         temp_diff = source_temp - initial_temp
-        power_consumption = calculate_power_consumption(volume, temp_diff, metrics['efficiency'])
         
+        hypocaust_power = calculate_power_consumption(volume, temp_diff, hypocaust_metrics['efficiency'])
+        modern_power = calculate_power_consumption(volume, temp_diff, modern_metrics['efficiency'])
+        
+        # Display power consumption comparison
         st.subheader("Power Consumption")
-        st.write(f"Estimated Power Consumption: {power_consumption:.2f} kWh")
+        col9, col10 = st.columns(2)
+        with col9:
+            st.write(f"Hypocaust System: {hypocaust_power:.2f} kWh")
+        with col10:
+            st.write(f"Modern System: {modern_power:.2f} kWh")
         
-        # Calculate and display emissions
-        emissions = sim.calculate_co2_emissions(power_consumption, 24)  # 24-hour period
+        # Calculate and display emissions for both systems
         st.subheader("Environmental Impact")
-        for source, value in emissions.items():
-            st.write(f"CO2 Emissions ({source.title()}): {value:.2f} kg")
+        hypocaust_emissions = hypocaust_sim.calculate_co2_emissions(hypocaust_power, 24)
+        modern_emissions = modern_sim.calculate_co2_emissions(modern_power, 24)
+        
+        col11, col12 = st.columns(2)
+        with col11:
+            st.write("Hypocaust System CO2 Emissions:")
+            for source, value in hypocaust_emissions.items():
+                st.write(f"- {source.title()}: {value:.2f} kg")
+        with col12:
+            st.write("Modern System CO2 Emissions:")
+            for source, value in modern_emissions.items():
+                st.write(f"- {source.title()}: {value:.2f} kg")
 
 if __name__ == "__main__":
     main()
