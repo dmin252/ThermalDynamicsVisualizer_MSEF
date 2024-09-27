@@ -1,9 +1,30 @@
 import streamlit as st
 import numpy as np
+import plotly.graph_objects as go
 from thermal_logic import ThermalSimulation
 from visualization import HeatingVisualizer
 from utils import validate_input, calculate_power_consumption, format_results
 from materials_db import MaterialDatabase
+
+def create_emissions_chart(hypocaust_data, modern_data, category):
+    """Create a bar chart comparing emissions between systems"""
+    systems = ['Hypocaust System', 'Modern System']
+    values = [hypocaust_data[category], modern_data[category]]
+    
+    fig = go.Figure(data=[
+        go.Bar(name=systems[0], x=[category], y=[values[0]], marker_color='#FF4B4B'),
+        go.Bar(name=systems[1], x=[category], y=[values[1]], marker_color='#1F77B4')
+    ])
+    
+    fig.update_layout(
+        title=f'{category.replace("_", " ").title()} Comparison',
+        yaxis_title='CO₂ Emissions (kg)',
+        barmode='group',
+        width=400,
+        height=300
+    )
+    
+    return fig
 
 def main():
     st.title("Thermal Simulation: Hypocaust vs Modern Heating")
@@ -49,16 +70,16 @@ def main():
     with st.sidebar.expander("Energy Source", expanded=True):
         fuel_type = st.selectbox(
             "Fuel Type",
-            ["Wood", "Natural Gas", "Electricity"],
-            format_func=lambda x: x.title()
+            ["wood", "natural_gas", "electricity"],
+            format_func=lambda x: x.replace("_", " ").title()
         )
         
         source_temp = st.slider("Heat Source Temperature (°C)", 40, 100, 80)
         
         # Different efficiency ranges based on fuel type
-        if fuel_type == "Wood":
+        if fuel_type == "wood":
             efficiency = st.slider("Combustion Efficiency (%)", 50, 80, 65)
-        elif fuel_type == "Natural Gas":
+        elif fuel_type == "natural_gas":
             efficiency = st.slider("Combustion Efficiency (%)", 70, 95, 85)
         else:  # Electricity
             efficiency = st.slider("Conversion Efficiency (%)", 90, 100, 95)
@@ -79,6 +100,7 @@ def main():
             format_func=lambda x: ancient_materials['building'][x]['name']
         )
         hypocaust_props = ancient_materials['building'][hypocaust_material].copy()
+        hypocaust_props['material_type'] = hypocaust_material
         
         # Modern system material selection
         st.subheader("Modern System Materials")
@@ -88,6 +110,7 @@ def main():
             format_func=lambda x: modern_materials['building'][x]['name']
         )
         modern_props = modern_materials['building'][modern_material].copy()
+        modern_props['material_type'] = modern_material
 
     # Simulation settings
     with st.sidebar.expander("Simulation Settings", expanded=True):
@@ -101,7 +124,7 @@ def main():
             props.update({
                 'source_temp': source_temp,
                 'efficiency': efficiency,
-                'fuel_type': fuel_type.lower()
+                'fuel_type': fuel_type
             })
         
         # Create simulation instances
@@ -208,20 +231,96 @@ def main():
         with col10:
             st.write(f"Modern System: {modern_power:.2f} kWh")
         
-        # Calculate and display emissions for both systems
-        st.subheader("Environmental Impact")
+        # Enhanced Environmental Impact Analysis
+        st.header("Environmental Impact Analysis")
+        
+        # Calculate detailed emissions for both systems
         hypocaust_emissions = hypocaust_sim.calculate_co2_emissions(hypocaust_power, 24)
         modern_emissions = modern_sim.calculate_co2_emissions(modern_power, 24)
         
-        col11, col12 = st.columns(2)
-        with col11:
-            st.write("Hypocaust System CO2 Emissions:")
-            for source, value in hypocaust_emissions.items():
-                st.write(f"- {source.title()}: {value:.2f} kg")
-        with col12:
-            st.write("Modern System CO2 Emissions:")
-            for source, value in modern_emissions.items():
-                st.write(f"- {source.title()}: {value:.2f} kg")
+        # Create tabs for different environmental metrics
+        tabs = st.tabs(["Operational Emissions", "Embodied Carbon", "Maintenance Impact", "Net Impact"])
+        
+        with tabs[0]:
+            st.subheader("Operational CO₂ Emissions")
+            col11, col12 = st.columns(2)
+            with col11:
+                st.write("Hypocaust System:")
+                for source, value in hypocaust_emissions['operational'].items():
+                    st.write(f"- {source.title()}: {value:.2f} kg CO₂e")
+            with col12:
+                st.write("Modern System:")
+                for source, value in modern_emissions['operational'].items():
+                    st.write(f"- {source.title()}: {value:.2f} kg CO₂e")
+            
+            # Calculate total operational emissions for visualization
+            operational_data = {
+                'hypocaust': {'operational': sum(hypocaust_emissions['operational'].values())},
+                'modern': {'operational': sum(modern_emissions['operational'].values())}
+            }
+            st.plotly_chart(create_emissions_chart(
+                operational_data['hypocaust'],
+                operational_data['modern'],
+                'operational'
+            ))
+        
+        with tabs[1]:
+            st.subheader("Embodied Carbon")
+            col13, col14 = st.columns(2)
+            with col13:
+                st.write(f"Hypocaust System: {hypocaust_emissions['embodied_carbon']:.2f} kg CO₂e")
+            with col14:
+                st.write(f"Modern System: {modern_emissions['embodied_carbon']:.2f} kg CO₂e")
+            
+            embodied_data = {
+                'hypocaust': {'embodied': hypocaust_emissions['embodied_carbon']},
+                'modern': {'embodied': modern_emissions['embodied_carbon']}
+            }
+            st.plotly_chart(create_emissions_chart(
+                embodied_data['hypocaust'],
+                embodied_data['modern'],
+                'embodied'
+            ))
+        
+        with tabs[2]:
+            st.subheader("Maintenance Impact")
+            col15, col16 = st.columns(2)
+            with col15:
+                st.write(f"Hypocaust System: {hypocaust_emissions['maintenance_impact']:.2f} kg CO₂e/year")
+            with col16:
+                st.write(f"Modern System: {modern_emissions['maintenance_impact']:.2f} kg CO₂e/year")
+            
+            maintenance_data = {
+                'hypocaust': {'maintenance': hypocaust_emissions['maintenance_impact']},
+                'modern': {'maintenance': modern_emissions['maintenance_impact']}
+            }
+            st.plotly_chart(create_emissions_chart(
+                maintenance_data['hypocaust'],
+                maintenance_data['modern'],
+                'maintenance'
+            ))
+        
+        with tabs[3]:
+            st.subheader("Net Environmental Impact")
+            col17, col18 = st.columns(2)
+            with col17:
+                st.write("Hypocaust System:")
+                st.write(f"- Total Emissions: {hypocaust_emissions['net_emissions']:.2f} kg CO₂e")
+                st.write(f"- Carbon Offset: {hypocaust_emissions['carbon_offset']:.2f} kg CO₂e")
+            with col18:
+                st.write("Modern System:")
+                st.write(f"- Total Emissions: {modern_emissions['net_emissions']:.2f} kg CO₂e")
+                st.write(f"- Carbon Offset: {modern_emissions['carbon_offset']:.2f} kg CO₂e")
+            
+            net_data = {
+                'hypocaust': {'net': hypocaust_emissions['net_emissions']},
+                'modern': {'net': modern_emissions['net_emissions']}
+            }
+            st.plotly_chart(create_emissions_chart(
+                net_data['hypocaust'],
+                net_data['modern'],
+                'net'
+            ))
 
 if __name__ == "__main__":
     main()
