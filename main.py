@@ -202,7 +202,7 @@ def main():
                 st.subheader(aspect.replace('_', ' ').title())
                 st.write(explanation.strip())
 
-        # Display system diagrams and other visualizations
+        # Display system diagrams and visualizations
         st.header("System Diagrams")
         col5, col6 = st.columns(2)
         with col5:
@@ -212,8 +212,160 @@ def main():
             st.write("Modern Heating System")
             st.image(visualizer.create_system_diagram('modern'))
 
-        # Display heat distribution visualizations and other metrics
-        # [Previous visualization code remains the same]
+        # Heat Distribution Visualizations
+        st.header("Heat Distribution")
+        col7, col8 = st.columns(2)
+        
+        with col7:
+            st.write("Hypocaust System - 3D Distribution")
+            st.plotly_chart(visualizer.create_3d_heatmap(
+                hypocaust_temp,
+                (room_size['length'], room_size['width'])
+            ))
+            st.write("2D Heat Map")
+            st.pyplot(visualizer.create_heatmap(hypocaust_temp))
+            
+        with col8:
+            st.write("Modern System - 3D Distribution")
+            st.plotly_chart(visualizer.create_3d_heatmap(
+                modern_temp,
+                (room_size['length'], room_size['width'])
+            ))
+            st.write("2D Heat Map")
+            st.pyplot(visualizer.create_heatmap(modern_temp))
+            
+        # Energy Retention Analysis
+        st.header("Energy Retention Analysis")
+        hypocaust_hours, hypocaust_retention = hypocaust_sim.calculate_hourly_energy_retention(initial_temp)
+        modern_hours, modern_retention = modern_sim.calculate_hourly_energy_retention(initial_temp)
+        
+        # Create and display combined energy retention plot
+        retention_plot = visualizer.create_energy_retention_plot(
+            hypocaust_hours, hypocaust_retention, modern_retention
+        )
+        st.plotly_chart(retention_plot)
+        
+        # Performance Metrics
+        st.header("System Performance")
+        col9, col10 = st.columns(2)
+        
+        # Calculate metrics
+        hypocaust_metrics = hypocaust_sim.calculate_efficiency(hypocaust_temp)
+        modern_metrics = modern_sim.calculate_efficiency(modern_temp)
+        
+        with col9:
+            st.write("Hypocaust System Metrics:")
+            hypocaust_formatted = format_results(hypocaust_metrics)
+            for key, value in hypocaust_formatted.items():
+                st.write(f"- {key.title()}: {value}")
+        with col10:
+            st.write("Modern System Metrics:")
+            modern_formatted = format_results(modern_metrics)
+            for key, value in modern_formatted.items():
+                st.write(f"- {key.title()}: {value}")
+        
+        # Power Consumption
+        volume = room_size['length'] * room_size['width'] * room_size['height']
+        hypocaust_power = calculate_power_consumption(volume, temp_diff, hypocaust_metrics['efficiency'])
+        modern_power = calculate_power_consumption(volume, temp_diff, modern_metrics['efficiency'])
+        
+        st.subheader("Power Consumption")
+        col11, col12 = st.columns(2)
+        with col11:
+            st.write(f"Hypocaust System: {hypocaust_power:.2f} kWh")
+        with col12:
+            st.write(f"Modern System: {modern_power:.2f} kWh")
+        
+        # Environmental Impact Analysis
+        st.header("Environmental Impact Analysis")
+        
+        # Calculate detailed emissions for both systems
+        hypocaust_emissions = hypocaust_sim.calculate_co2_emissions(hypocaust_power, 24)
+        modern_emissions = modern_sim.calculate_co2_emissions(modern_power, 24)
+        
+        # Create tabs for different environmental metrics
+        tabs = st.tabs(["Operational Emissions", "Embodied Carbon", "Maintenance Impact", "Net Impact"])
+        
+        with tabs[0]:
+            st.subheader("Operational CO₂ Emissions")
+            col13, col14 = st.columns(2)
+            with col13:
+                st.write("Hypocaust System:")
+                for source, value in hypocaust_emissions['operational'].items():
+                    st.write(f"- {source.title()}: {value:.2f} kg CO₂e")
+            with col14:
+                st.write("Modern System:")
+                for source, value in modern_emissions['operational'].items():
+                    st.write(f"- {source.title()}: {value:.2f} kg CO₂e")
+            
+            # Visualize operational emissions
+            operational_data = {
+                'hypocaust': {'operational': sum(hypocaust_emissions['operational'].values())},
+                'modern': {'operational': sum(modern_emissions['operational'].values())}
+            }
+            st.plotly_chart(create_emissions_chart(
+                operational_data['hypocaust'],
+                operational_data['modern'],
+                'operational'
+            ))
+        
+        with tabs[1]:
+            st.subheader("Embodied Carbon")
+            col15, col16 = st.columns(2)
+            with col15:
+                st.write(f"Hypocaust System: {hypocaust_emissions['embodied_carbon']:.2f} kg CO₂e")
+            with col16:
+                st.write(f"Modern System: {modern_emissions['embodied_carbon']:.2f} kg CO₂e")
+            
+            embodied_data = {
+                'hypocaust': {'embodied': hypocaust_emissions['embodied_carbon']},
+                'modern': {'embodied': modern_emissions['embodied_carbon']}
+            }
+            st.plotly_chart(create_emissions_chart(
+                embodied_data['hypocaust'],
+                embodied_data['modern'],
+                'embodied'
+            ))
+        
+        with tabs[2]:
+            st.subheader("Maintenance Impact")
+            col17, col18 = st.columns(2)
+            with col17:
+                st.write(f"Hypocaust System: {hypocaust_emissions['maintenance_impact']:.2f} kg CO₂e/year")
+            with col18:
+                st.write(f"Modern System: {modern_emissions['maintenance_impact']:.2f} kg CO₂e/year")
+            
+            maintenance_data = {
+                'hypocaust': {'maintenance': hypocaust_emissions['maintenance_impact']},
+                'modern': {'maintenance': modern_emissions['maintenance_impact']}
+            }
+            st.plotly_chart(create_emissions_chart(
+                maintenance_data['hypocaust'],
+                maintenance_data['modern'],
+                'maintenance'
+            ))
+        
+        with tabs[3]:
+            st.subheader("Net Environmental Impact")
+            col19, col20 = st.columns(2)
+            with col19:
+                st.write("Hypocaust System:")
+                st.write(f"- Total Emissions: {hypocaust_emissions['net_emissions']:.2f} kg CO₂e")
+                st.write(f"- Carbon Offset: {hypocaust_emissions['carbon_offset']:.2f} kg CO₂e")
+            with col20:
+                st.write("Modern System:")
+                st.write(f"- Total Emissions: {modern_emissions['net_emissions']:.2f} kg CO₂e")
+                st.write(f"- Carbon Offset: {modern_emissions['carbon_offset']:.2f} kg CO₂e")
+            
+            net_data = {
+                'hypocaust': {'net': hypocaust_emissions['net_emissions']},
+                'modern': {'net': modern_emissions['net_emissions']}
+            }
+            st.plotly_chart(create_emissions_chart(
+                net_data['hypocaust'],
+                net_data['modern'],
+                'net'
+            ))
 
 if __name__ == "__main__":
     main()
