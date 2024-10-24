@@ -31,7 +31,7 @@ args = "streamlit run main.py --server.address 0.0.0.0 --server.port 5000"
 waitForPort = 5000
 
 [deployment]
-run = ["sh", "-c", "streamlit run main.py --server.address 0.0.0.0 --server.port 5000 --server.headless true --server.enableCORS false"]
+run = ["sh", "-c", "streamlit run main.py --server.address 0.0.0.0 --server.port 5000"]
 
 [[ports]]
 localPort = 5000
